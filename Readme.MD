@@ -8,7 +8,7 @@ rules to remember, and questions to ask the hostel office. Built with **Streamli
 - Reads PDF, DOCX and TXT resumes
 - Answers only from the hostel details you provide (no invented prices or rules)
 - Follow-up questions about the hostel
-- Choice of Groq models (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`)
+- Choice of Groq models (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, plus Llama models if your key has access). If a model is unavailable the app tries the others automatically
 
 ## Run locally
 ```bash
