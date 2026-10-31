@@ -16,7 +16,14 @@ from pypdf import PdfReader
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+# Groq now lists the OpenAI GPT-OSS models as self-serve; the Llama models are
+# "contact sales" (Enterprise), so they may give a 404 on normal keys.
+MODELS = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+]
 MAX_RESUME_CHARS = 12000  # keeps the prompt well inside the model's context window
 
 # Replace this with your real hostel details (or edit it live in the sidebar).
@@ -119,16 +126,33 @@ def build_followup_messages(resume_text: str, hostel_info: str, question: str) -
 
 
 def ask_groq(api_key: str, model: str, messages: list) -> str:
-    """Call the Groq chat API and return the reply text."""
+    """Call the Groq chat API and return the reply text.
+
+    If the chosen model is not available for this key (404 / model_not_found),
+    the other models in MODELS are tried automatically.
+    """
     client = Groq(api_key=api_key)
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=0.3,
-        max_tokens=1200,
-    )
-    content = response.choices[0].message.content
-    return (content or "").strip()
+    candidates = [model] + [m for m in MODELS if m != model]
+    last_error = None
+    for name in candidates:
+        try:
+            response = client.chat.completions.create(
+                model=name,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=4000,  # reasoning models spend part of this on thinking
+            )
+        except Exception as exc:
+            text = str(exc).lower()
+            if "model_not_found" in text or "does not exist" in text or "404" in text:
+                last_error = exc
+                continue  # try the next model
+            raise
+        content = (response.choices[0].message.content or "").strip()
+        if content:
+            return content
+        last_error = RuntimeError(f"Model {name} returned an empty reply.")
+    raise RuntimeError(f"No available Groq model worked. Last error: {last_error}")
 
 
 def get_api_key(user_input: str) -> str:
